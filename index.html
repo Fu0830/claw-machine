@@ -7,10 +7,10 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='8' width='22' height='18' rx='5' fill='%23ffd6e0' stroke='%237a6558' stroke-width='2'/%3E%3Ccircle cx='16' cy='18' r='6' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root{
-  --bg:#fff7f0;
-  --ink:#7a6558;
-  --pink:#ffd6e0;
-  --pink-deep:#f4a9bd;
+  --bg:#fdf3e7;
+  --ink:#6b584c;
+  --pink:#f6c9d4;
+  --pink-deep:#ee9fb2;
   --cream:#fff1d6;
   --mint:#d8f3dc;
   --blue:#dbeafe;
@@ -24,9 +24,9 @@ body{
   font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Comic Sans MS",sans-serif;
   color:var(--ink);
   background:
-    radial-gradient(circle at 15% 15%, #ffe9f0 0, transparent 42%),
-    radial-gradient(circle at 85% 20%, #e6f2ff 0, transparent 42%),
-    radial-gradient(circle at 50% 95%, #fdeee0 0, transparent 45%),
+    radial-gradient(circle at 15% 15%, #ffe4ec 0, transparent 42%),
+    radial-gradient(circle at 85% 20%, #fff0d6 0, transparent 42%),
+    radial-gradient(circle at 50% 95%, #fbe7ef 0, transparent 45%),
     var(--bg);
   min-height:100%;
   display:flex;justify-content:center;
@@ -171,10 +171,12 @@ const $ = (id)=>document.getElementById(id);
 const rand = (a,b)=>a+Math.random()*(b-a);
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const PAL = {
-  pink:'#ffd6e0', pinkDeep:'#f4a9bd', cream:'#fff1d6', mint:'#d8f3dc',
-  blue:'#dbeafe', lilac:'#e9def5', yellow:'#ffe8a3', ink:'#7a6558',
-  bear:'#c9a37e', rabbit:'#f3ece4', cat:'#f7c873', duck:'#ffd97d',
-  frog:'#b7e4c7', heart:'#f7a8b8'
+  pink:'#f6c9d4', pinkDeep:'#ee9fb2', cream:'#fff1d6', mint:'#d8f3dc',
+  blue:'#dbeafe', lilac:'#e9def5', yellow:'#ffe8a3', ink:'#6b584c',
+  bear:'#c99a6b', bearLight:'#e8c9a4', rabbit:'#f8f2ea', rabbitInner:'#f4a9b8',
+  cat:'#f3d3b3', catStripe:'#d9a877', duck:'#ffd968', duckBeak:'#f2a35e',
+  frog:'#a8dba8', heart:'#f4a7b9', metal:'#b9b3ad', metalLight:'#e8e4df',
+  star:'#f7d774', glass:'rgba(255,255,255,.35)'
 };
 const DOLL_TYPES = ['bear','rabbit','cat','duck','frog','heart'];
 const DOLL_NAME = {bear:'小熊',rabbit:'小兔',cat:'小猫',duck:'小鸭',frog:'青蛙',heart:'爱心'};
@@ -231,30 +233,48 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
 }
+function drawStar(ctx,x,y,r){
+  ctx.beginPath();
+  for(let i=0;i<10;i++){
+    const rr=i%2===0?r:r*0.45, ang=-Math.PI/2+i*Math.PI/5;
+    const px=x+Math.cos(ang)*rr, py=y+Math.sin(ang)*rr;
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.closePath(); ctx.fill();
+}
 
 /* ================= 游戏数据 ================= */
 let dolls = [];
+let stars = [];
 const claw = {
   x:0, y:40, mode:'idle', held:null, t:0,
-  open:1, speed:260
+  open:1, speed:260, willDrop:false
 };
 const keys = {left:false,right:false};
 let raf=0, last=0;
 
 function resetDolls(w,h){
   dolls=[];
-  const rows=[{y:h-92,n:4},{y:h-152,n:3}];
+  // 前后两排紧凑摆放，全部落在爪子可抓取高度内
+  const rows=[
+    {y:h-82,n:4,scale:1.1,off:0},
+    {y:h-118,n:3,scale:0.96,off:0.5}
+  ];
   rows.forEach(row=>{
-    const slotW=(w-70)/row.n;
+    const slotW=(w-70)/4;
     for(let i=0;i<row.n;i++){
       const type=DOLL_TYPES[Math.floor(Math.random()*DOLL_TYPES.length)];
       dolls.push({
-        x:35+slotW*(i+0.5)+rand(-13,13),
-        y:row.y+rand(-8,8),
-        type, held:false, scored:false, scale:rand(0.9,1.05)
+        x:35+slotW*(i+row.off+0.5)+rand(-8,8),
+        y:row.y+rand(-5,5),
+        type, held:false, scored:false, scale:row.scale*rand(0.95,1.05)
       });
     }
   });
+  stars = [];
+  for(let i=0;i<14;i++){
+    stars.push({x:rand(24,w-24), y:rand(60,h-130), r:rand(2,5), ph:rand(0,6.28)});
+  }
 }
 
 /* ================= 流程控制 ================= */
@@ -265,7 +285,7 @@ function startGame(){
   const c=$('gameCanvas');
   const {w,h}=fitCanvas(c);
   resetDolls(w,h);
-  claw.x=w/2; claw.y=40; claw.mode='idle'; claw.held=null; claw.open=1; claw.t=0;
+  claw.x=w/2; claw.y=40; claw.mode='idle'; claw.held=null; claw.open=1; claw.t=0; claw.willDrop=false;
   updateHud(); setFeedback('','');
   last=performance.now();
   cancelAnimationFrame(raf);
@@ -286,10 +306,19 @@ function tryDrop(){
   claw.mode='lowering'; claw.t=0;
   setFeedback('爪子下降中…','');
 }
+// 半路松爪：玩偶掉回机内前排，不计入收藏
+function releaseDoll(w,h){
+  const d=claw.held;
+  if(!d) return;
+  d.held=false; d.scored=false;
+  d.y=h-84; d.x=clamp(claw.x,50,w-70);
+  claw.held=null; claw.open=1; claw.willDrop=false;
+  sfx.miss(); setFeedback('哎呀，半路松爪了！','bad');
+}
 
 /* ================= 状态机更新 ================= */
 function update(dt,w,h){
-  const groundY=h-86;
+  const groundY=h-100;
   // idle 下允许左右移动
   if(claw.mode==='idle'){
     if(keys.left) claw.x-=claw.speed*dt;
@@ -310,12 +339,17 @@ function update(dt,w,h){
         let best=null,bd=1e9;
         dolls.forEach(d=>{
           if(d.held||d.scored) return;
-          const dist=Math.hypot(d.x-claw.x,d.y-claw.y);
-          if(dist<bd){bd=dist;best=d;}
+          const dx=Math.abs(d.x-claw.x), dy=Math.abs(d.y-claw.y);
+          if(dx<44 && dy<34){
+            const dist=Math.hypot(d.x-claw.x,d.y-claw.y);
+            if(dist<bd){bd=dist;best=d;}
+          }
         });
-        if(best && bd<48){
+        if(best && bd<54){
           claw.held=best; best.held=true;
-          sfx.grab(); setFeedback('抓到啦！','good');
+          claw.willDrop = Math.random()<0.30;
+          sfx.grab();
+          setFeedback(claw.willDrop?'抓住了，小心松爪！':'抓到啦！','good');
         }else{
           sfx.miss(); setFeedback('差一点点，没抓住','bad');
         }
@@ -325,8 +359,12 @@ function update(dt,w,h){
     }
     case 'rising':{
       claw.y-=190*dt;
-      if(claw.y<=40){ claw.y=40; claw.mode='moving'; claw.t=0; }
       if(claw.held) claw.held.y=claw.y+18;
+      // 上升途中按 30% 概率松爪，玩偶掉回机内
+      if(claw.held && claw.willDrop && claw.y<=120){
+        releaseDoll(w,h);
+      }
+      if(claw.y<=40){ claw.y=40; claw.mode='moving'; claw.t=0; }
       break;
     }
     case 'moving':{
@@ -369,24 +407,47 @@ function draw(){
   const c=$('gameCanvas');
   const {ctx,w,h}=fitCanvas(c);
   ctx.clearRect(0,0,w,h);
+  const now=performance.now()/1000;
 
-  // 机窗背景
-  ctx.fillStyle='#eef3ff';
+  // 机窗暖光背景（上暖黄、下浅粉渐变）
+  const bg=ctx.createLinearGradient(0,10,0,h-10);
+  bg.addColorStop(0,'#fff6e6');
+  bg.addColorStop(0.6,'#fdeee6');
+  bg.addColorStop(1,'#fbe6ea');
+  ctx.fillStyle=bg;
   roundRect(ctx,10,10,w-20,h-20,18); ctx.fill();
-  // 底部软垫
-  ctx.fillStyle=PAL.mint;
-  roundRect(ctx,10,h-96,w-20,86,18); ctx.fill();
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2.5;
-  // 软垫虚线缝线
-  ctx.setLineDash([7,7]);
-  ctx.beginPath(); ctx.moveTo(24,h-104); ctx.lineTo(w-24,h-104); ctx.stroke();
-  ctx.setLineDash([]);
+
+  // 顶部暖光灯带
+  ctx.fillStyle='rgba(255,214,120,.5)';
+  roundRect(ctx,24,20,w-48,12,6); ctx.fill();
+  ctx.fillStyle='rgba(255,236,180,.8)';
+  roundRect(ctx,24,20,w-48,6,3); ctx.fill();
+
+  // 闪烁小星星
+  stars.forEach(s=>{
+    const a=0.45+0.4*Math.sin(now*2+s.ph);
+    ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=PAL.star;
+    drawStar(ctx,s.x,s.y,s.r);
+    ctx.restore();
+  });
+
+  // 玻璃反光条
+  ctx.fillStyle=PAL.glass;
+  ctx.beginPath();
+  ctx.moveTo(30,30); ctx.lineTo(58,30); ctx.lineTo(34,h-30); ctx.lineTo(18,h-30);
+  ctx.closePath(); ctx.fill();
+
+  // 底部白色绒面软垫
+  ctx.fillStyle='#fffaf3';
+  roundRect(ctx,10,h-118,w-20,108,18); ctx.fill();
+  ctx.strokeStyle=PAL.pink; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(24,h-110); ctx.lineTo(w-24,h-110); ctx.stroke();
 
   // 出口收藏洞
   const exitX=w-48, exitY=h-52;
-  ctx.fillStyle='#7a6558';
+  ctx.fillStyle='#8a7367';
   ctx.beginPath(); ctx.arc(exitX,exitY,26,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#5f4c42';
+  ctx.fillStyle='#6b564c';
   ctx.beginPath(); ctx.arc(exitX,exitY,20,0,Math.PI*2); ctx.fill();
   // 洞内陈列已抓到的玩偶
   state.caughtList.slice(-4).forEach((t,i)=>{
@@ -411,28 +472,29 @@ function draw(){
 
 function drawClaw(ctx,w,h){
   const {x,y}=claw;
-  // 链条
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2.5;
+  // 金属竖杆
+  ctx.strokeStyle=PAL.metal; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(x,40); ctx.lineTo(x,y); ctx.stroke();
+  // 顶部滑块
+  ctx.fillStyle=PAL.metalLight;
+  roundRect(ctx,x-15,22,30,16,6); ctx.fill();
+  ctx.strokeStyle=PAL.metal; ctx.lineWidth=2; ctx.stroke();
   // 爪座
-  ctx.fillStyle=PAL.pinkDeep;
-  roundRect(ctx,x-12,y-6,24,14,6); ctx.fill(); ctx.stroke();
-  // 两瓣爪
+  ctx.fillStyle=PAL.metal;
+  roundRect(ctx,x-11,y-4,22,12,5); ctx.fill();
+  ctx.strokeStyle=PAL.metal; ctx.lineWidth=2; ctx.stroke();
+  // 两瓣金属钩爪
   const spread=14*claw.open+6;
-  ctx.lineWidth=3; ctx.strokeStyle=PAL.ink;
-  ctx.fillStyle=PAL.cream;
-  // 左爪
+  ctx.lineWidth=4; ctx.strokeStyle=PAL.metal; ctx.lineCap='round';
   ctx.beginPath();
-  ctx.moveTo(x-6,y+8);
-  ctx.lineTo(x-6-spread,y+30);
-  ctx.lineTo(x-2-spread,y+34);
+  ctx.moveTo(x-5,y+8);
+  ctx.quadraticCurveTo(x-5-spread,y+22,x-3-spread,y+32);
   ctx.stroke();
-  // 右爪
   ctx.beginPath();
-  ctx.moveTo(x+6,y+8);
-  ctx.lineTo(x+6+spread,y+30);
-  ctx.lineTo(x+2+spread,y+34);
+  ctx.moveTo(x+5,y+8);
+  ctx.quadraticCurveTo(x+5+spread,y+22,x+3+spread,y+32);
   ctx.stroke();
+  ctx.lineCap='butt';
 }
 
 function drawDoll(ctx,d){
@@ -442,51 +504,94 @@ function drawDoll(ctx,d){
   drawDollType(ctx,d.type);
   ctx.restore();
 }
+function drawBow(ctx,x,y){
+  ctx.fillStyle=PAL.pinkDeep;
+  ctx.beginPath();
+  ctx.moveTo(x,y); ctx.lineTo(x-7,y-4); ctx.lineTo(x-7,y+4); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x,y); ctx.lineTo(x+7,y-4); ctx.lineTo(x+7,y+4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y,2.4,0,Math.PI*2); ctx.fill();
+}
 function drawDollType(ctx,type){
   ctx.lineWidth=2; ctx.strokeStyle=PAL.ink;
   if(type==='bear'){
     ctx.fillStyle=PAL.bear;
-    ctx.beginPath(); ctx.arc(-9,-12,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(9,-12,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-9,-12,5.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(9,-12,5.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=PAL.bearLight;
+    ctx.beginPath(); ctx.arc(-9,-12,2.6,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(9,-12,2.6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.bear;
     ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#f3e2d0';
-    ctx.beginPath(); ctx.ellipse(0,4,7,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.bearLight;
+    ctx.beginPath(); ctx.ellipse(0,5,7,5,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,2,6,4,0,0,Math.PI*2); ctx.fill();
     eyes(ctx,-5,-3,2); eyes(ctx,5,-3,2);
+    ctx.fillStyle=PAL.ink;
+    ctx.beginPath(); ctx.arc(0,0.5,1.6,0,Math.PI*2); ctx.fill();
+    tinyMouth(ctx,0,2.5);
     blush(ctx,-10,3); blush(ctx,10,3);
+    drawBow(ctx,0,13);
   }else if(type==='rabbit'){
     ctx.fillStyle=PAL.rabbit;
-    ctx.beginPath(); ctx.ellipse(-6,-16,4,9,-0.15,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(6,-16,4,9,0.15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-6,-16,4.5,9.5,-0.15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(6,-16,4.5,9.5,0.15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=PAL.rabbitInner;
+    ctx.beginPath(); ctx.ellipse(-6,-15,2.2,6,-0.15,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6,-15,2.2,6,0.15,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.rabbit;
     ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
     eyes(ctx,-5,-3,2); eyes(ctx,5,-3,2);
-    ctx.fillStyle=PAL.heart;
-    ctx.beginPath(); ctx.arc(0,3,1.8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.rabbitInner;
+    ctx.beginPath(); ctx.arc(0,2,1.8,0,Math.PI*2); ctx.fill();
+    tinyMouth(ctx,0,3.5);
     blush(ctx,-10,3); blush(ctx,10,3);
+    drawBow(ctx,0,13);
   }else if(type==='cat'){
     ctx.fillStyle=PAL.cat;
     ctx.beginPath(); ctx.moveTo(-11,-9); ctx.lineTo(-7,-17); ctx.lineTo(-3,-10); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(11,-9); ctx.lineTo(7,-17); ctx.lineTo(3,-10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=PAL.rabbitInner;
+    ctx.beginPath(); ctx.moveTo(-9,-10); ctx.lineTo(-7,-14); ctx.lineTo(-5,-10); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(9,-10); ctx.lineTo(7,-14); ctx.lineTo(5,-10); ctx.fill();
+    ctx.fillStyle=PAL.cat;
     ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 额头条纹
+    ctx.strokeStyle=PAL.catStripe; ctx.lineWidth=1.6;
+    [-4,0,4].forEach(dx=>{
+      ctx.beginPath(); ctx.moveTo(dx,-13); ctx.lineTo(dx,-9); ctx.stroke();
+    });
+    ctx.strokeStyle=PAL.ink;
     eyes(ctx,-5,-3,2); eyes(ctx,5,-3,2);
-    ctx.fillStyle='#e8a94e';
-    ctx.beginPath(); ctx.arc(0,3,1.8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.rabbitInner;
+    ctx.beginPath(); ctx.arc(0,2,1.8,0,Math.PI*2); ctx.fill();
+    tinyMouth(ctx,0,3.5);
+    // 胡须
+    ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(-11,1); ctx.lineTo(-17,0); ctx.moveTo(-11,4); ctx.lineTo(-17,5);
+    ctx.moveTo(11,1); ctx.lineTo(17,0); ctx.moveTo(11,4); ctx.lineTo(17,5); ctx.stroke();
     blush(ctx,-10,4); blush(ctx,10,4);
   }else if(type==='duck'){
     ctx.fillStyle=PAL.duck;
     ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle=PAL.yellow;
-    ctx.beginPath(); ctx.ellipse(0,4,6,4,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#f2c65a';
+    ctx.beginPath(); ctx.ellipse(-11,3,4,6,-0.3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(11,3,4,6,0.3,0,Math.PI*2); ctx.fill();
     eyes(ctx,-5,-4,2); eyes(ctx,5,-4,2);
-    ctx.fillStyle=PAL.pinkDeep;
+    ctx.fillStyle=PAL.duckBeak;
     ctx.beginPath(); ctx.ellipse(0,3,5,3,0,0,Math.PI*2); ctx.fill();
+    blush(ctx,-10,3); blush(ctx,10,3);
   }else if(type==='frog'){
     ctx.fillStyle=PAL.frog;
-    ctx.beginPath(); ctx.arc(-7,-11,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(7,-11,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 凸眼白眼底
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(-7,-11,5.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(7,-11,5.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
     eyes(ctx,-7,-11,2.4); eyes(ctx,7,-11,2.4);
-    ctx.fillStyle=PAL.ink;
-    ctx.beginPath(); ctx.arc(0,4,4,0.1,Math.PI-0.1); ctx.stroke();
+    ctx.strokeStyle=PAL.ink; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.arc(0,4,4,0.15,Math.PI-0.15); ctx.stroke();
+    blush(ctx,-10,4); blush(ctx,10,4);
   }else{ // heart
     ctx.fillStyle=PAL.heart;
     ctx.beginPath();
@@ -494,17 +599,36 @@ function drawDollType(ctx,type){
     ctx.bezierCurveTo(-18,0,-12,-14,0,-5);
     ctx.bezierCurveTo(12,-14,18,0,0,12);
     ctx.fill(); ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,.55)';
+    ctx.fillStyle='rgba(255,255,255,.5)';
     ctx.beginPath(); ctx.ellipse(-5,-4,3,4,-0.5,0,Math.PI*2); ctx.fill();
+    eyes(ctx,-5,1,2); eyes(ctx,5,1,2);
+    tinyMouth(ctx,0,4);
+    blush(ctx,-9,5); blush(ctx,9,5);
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(-5,13,3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5,13,3,0,Math.PI*2); ctx.fill();
   }
 }
 function eyes(ctx,x,y,r){
   ctx.fillStyle=PAL.ink;
   ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  // 豆豆眼高光
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(x-r*0.3,y-r*0.3,r*0.32,0,Math.PI*2); ctx.fill();
 }
 function blush(ctx,x,y){
   ctx.fillStyle='rgba(244,169,189,.55)';
   ctx.beginPath(); ctx.ellipse(x,y,3.5,2.2,0,0,Math.PI*2); ctx.fill();
+}
+function tinyMouth(ctx,x,y){
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=1.6; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(x,y);
+  ctx.quadraticCurveTo(x-2.5,y+2.5,x-4,y+1);
+  ctx.moveTo(x,y);
+  ctx.quadraticCurveTo(x+2.5,y+2.5,x+4,y+1);
+  ctx.stroke();
+  ctx.lineCap='butt';
 }
 
 /* ================= 主循环 ================= */
@@ -527,7 +651,7 @@ function endGame(){
   let title, wish;
   if(n>=5){ title='满载而归！'; wish='简直是抓娃娃天才，一整窝玩偶都被你抱回家啦！'; sfx.win(); }
   else if(n>=3){ title='收获满满！'; wish='手感很不错哦，剩下的玩偶下次再来认领吧。'; sfx.win(); }
-  else if(n>=1){ title='小有收获！'; wish='抓到啦一只喜欢的玩偶，再练练手感会更顺。'; }
+  else if(n>=1){ title='小有收获！'; wish='抓到一只喜欢的玩偶，再练练手感会更顺。'; }
   else{ title='全军覆没…'; wish='玩偶们太狡猾啦，调整好角度再来一次吧！'; }
   $('endTitle').textContent=title;
   $('endStats').innerHTML=
