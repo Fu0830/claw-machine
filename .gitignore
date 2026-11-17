@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 依赖（纯静态页面，无构建依赖）
+node_modules/

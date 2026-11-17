@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>可爱抓娃娃机</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='8' width='22' height='18' rx='5' fill='%23ffd6e0' stroke='%237a6558' stroke-width='2'/%3E%3Ccircle cx='16' cy='18' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#fff7f0;
+  --ink:#7a6558;
+  --pink:#ffd6e0;
+  --pink-deep:#f4a9bd;
+  --cream:#fff1d6;
+  --mint:#d8f3dc;
+  --blue:#dbeafe;
+  --lilac:#e9def5;
+  --yellow:#ffe8a3;
+  --line:2.5px solid var(--ink);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Comic Sans MS",sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(circle at 15% 15%, #ffe9f0 0, transparent 42%),
+    radial-gradient(circle at 85% 20%, #e6f2ff 0, transparent 42%),
+    radial-gradient(circle at 50% 95%, #fdeee0 0, transparent 45%),
+    var(--bg);
+  min-height:100%;
+  display:flex;justify-content:center;
+  padding:16px 12px 32px;
+}
+#app{position:relative;width:100%;max-width:480px;display:flex;flex-direction:column;gap:14px;}
+
+.card{
+  background:#fff;border:var(--line);border-radius:22px;
+  box-shadow:5px 6px 0 rgba(122,101,88,.15);
+  padding:20px;
+}
+.btn{
+  font-family:inherit;font-weight:700;font-size:17px;color:var(--ink);
+  border:var(--line);border-radius:16px;cursor:pointer;min-height:48px;
+  box-shadow:3px 4px 0 rgba(122,101,88,.2);
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn:active{transform:translate(2px,3px);box-shadow:1px 1px 0 rgba(122,101,88,.2);}
+.btn.pink{background:var(--pink);}
+.btn.cream{background:var(--cream);}
+.btn.mint{background:var(--mint);}
+.btn.blue{background:var(--blue);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+h1{font-size:27px;text-align:center;line-height:1.35;}
+.sub{text-align:center;font-size:15px;line-height:1.7;opacity:.85;}
+.btn-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+.screen{display:none;flex-direction:column;gap:14px;}
+.screen.active{display:flex;}
+
+/* 开始页 */
+.hero{display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;}
+.hero .machine-svg{width:130px;height:130px;}
+.tip{font-size:13px;opacity:.7;}
+
+/* 游戏页 HUD */
+.hud{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.stat{
+  background:#fff;border:var(--line);border-radius:14px;
+  padding:8px 14px;font-weight:700;font-size:15px;
+}
+.stage{border:var(--line);border-radius:22px;background:#fff;overflow:hidden;box-shadow:5px 6px 0 rgba(122,101,88,.15);}
+canvas{display:block;width:100%;touch-action:none;}
+#gameCanvas{height:440px;}
+
+/* 控制区 */
+.controls{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.ctrl-side{display:flex;gap:12px;}
+.ctrl-btn{
+  width:64px;height:64px;border-radius:20px;font-size:24px;
+  display:flex;align-items:center;justify-content:center;
+}
+.ctrl-btn svg{width:28px;height:28px;}
+.btn-drop{
+  flex:1;max-width:180px;height:64px;border-radius:20px;font-size:19px;background:var(--pink-deep);color:#fff;
+}
+.feedback{min-height:24px;text-align:center;font-weight:700;font-size:15px;}
+.feedback.good{color:#3a9d6b;}
+.feedback.bad{color:#d9707a;}
+
+/* 结算页 */
+.end-hero{display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;}
+.end-title{font-size:25px;font-weight:800;line-height:1.5;}
+.end-stats{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.end-wish{background:var(--bg);border:var(--line);border-radius:16px;padding:16px 18px;font-size:16px;line-height:1.8;max-width:360px;}
+#endDolls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;min-height:40px;}
+.end-chip{
+  border:var(--line);border-radius:14px;background:#fff;padding:8px 12px;font-size:14px;font-weight:700;
+}
+
+@media (max-width:380px){
+  h1{font-size:23px;}
+  .card{padding:16px;}
+  #gameCanvas{height:380px;}
+  .ctrl-btn{width:56px;height:56px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== 开始页 ===== -->
+  <section class="screen active" id="screen-start">
+    <div class="card hero">
+      <svg class="machine-svg" viewBox="0 0 130 130" aria-hidden="true">
+        <rect x="18" y="14" width="94" height="86" rx="16" fill="#ffd6e0" stroke="#7a6558" stroke-width="3"/>
+        <rect x="28" y="26" width="74" height="52" rx="10" fill="#eef3ff" stroke="#7a6558" stroke-width="2.5"/>
+        <circle cx="50" cy="58" r="11" fill="#f3ece4" stroke="#7a6558" stroke-width="2"/>
+        <circle cx="80" cy="60" r="10" fill="#ffd97d" stroke="#7a6558" stroke-width="2"/>
+        <rect x="48" y="96" width="34" height="10" rx="5" fill="#fff1d6" stroke="#7a6558" stroke-width="2.5"/>
+      </svg>
+      <h1>可爱抓娃娃机</h1>
+      <p class="sub">左右移动机械爪，对准喜欢的玩偶按下爪键。<br>抓到的玩偶会收进右侧收藏洞，看看你能抱走几只！</p>
+      <button class="btn pink" id="btnStart">开始游戏</button>
+      <p class="tip">键盘 ← → 移动，空格下爪；手机可点按两侧按钮</p>
+    </div>
+  </section>
+
+  <!-- ===== 游戏页 ===== -->
+  <section class="screen" id="screen-game">
+    <div class="hud">
+      <span class="stat" id="hudMoves">剩余 5 次</span>
+      <span class="stat" id="hudGot">已抓 0 只</span>
+    </div>
+    <div class="stage">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="controls">
+      <div class="ctrl-side">
+        <button class="btn ctrl-btn blue" id="btnLeft" aria-label="向左移动">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#7a6558" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn ctrl-btn blue" id="btnRight" aria-label="向右移动">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="#7a6558" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-drop" id="btnDrop">下爪</button>
+    </div>
+  </section>
+
+  <!-- ===== 结算页 ===== -->
+  <section class="screen" id="screen-end">
+    <div class="card end-hero">
+      <div class="end-title" id="endTitle">时间到！</div>
+      <div class="end-stats" id="endStats"></div>
+      <div id="endDolls"></div>
+      <div class="end-wish" id="endWish"></div>
+      <div class="btn-row">
+        <button class="btn mint" id="btnReplay">再玩一次</button>
+        <button class="btn cream" id="btnHome">回到首页</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ================= 工具与状态 ================= */
+const $ = (id)=>document.getElementById(id);
+const rand = (a,b)=>a+Math.random()*(b-a);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const PAL = {
+  pink:'#ffd6e0', pinkDeep:'#f4a9bd', cream:'#fff1d6', mint:'#d8f3dc',
+  blue:'#dbeafe', lilac:'#e9def5', yellow:'#ffe8a3', ink:'#7a6558',
+  bear:'#c9a37e', rabbit:'#f3ece4', cat:'#f7c873', duck:'#ffd97d',
+  frog:'#b7e4c7', heart:'#f7a8b8'
+};
+const DOLL_TYPES = ['bear','rabbit','cat','duck','frog','heart'];
+const DOLL_NAME = {bear:'小熊',rabbit:'小兔',cat:'小猫',duck:'小鸭',frog:'青蛙',heart:'爱心'};
+
+const state = { screen:'start', moves:5, got:0, caughtList:[] };
+
+/* ================= 音效 ================= */
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
+  if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+}
+function tone(freq,dur,type='sine',vol=0.13,delay=0){
+  if(!audioCtx) return;
+  const t0=audioCtx.currentTime+delay;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,t0);
+  g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+const sfx = {
+  click(){ tone(440,.06,'sine',.08); },
+  drop(){ tone(300,.15,'triangle',.1); },
+  grab(){ tone(520,.1,'sine',.12); tone(660,.12,'sine',.12,.08); },
+  miss(){ tone(180,.2,'sawtooth',.08); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.18,'sine',.13,i*.12)); }
+};
+
+/* ================= 视图切换 ================= */
+const SCREENS=['start','game','end'];
+function showScreen(name){
+  state.screen=name;
+  SCREENS.forEach(s=>$('screen-'+s).classList.toggle('active',s===name));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ================= 画布适配 ================= */
+function fitCanvas(canvas){
+  const dpr=window.devicePixelRatio||1;
+  const w=canvas.clientWidth, h=canvas.clientHeight;
+  canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,w,h};
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+/* ================= 游戏数据 ================= */
+let dolls = [];
+const claw = {
+  x:0, y:40, mode:'idle', held:null, t:0,
+  open:1, speed:260
+};
+const keys = {left:false,right:false};
+let raf=0, last=0;
+
+function resetDolls(w,h){
+  dolls=[];
+  const rows=[{y:h-92,n:4},{y:h-152,n:3}];
+  rows.forEach(row=>{
+    const slotW=(w-70)/row.n;
+    for(let i=0;i<row.n;i++){
+      const type=DOLL_TYPES[Math.floor(Math.random()*DOLL_TYPES.length)];
+      dolls.push({
+        x:35+slotW*(i+0.5)+rand(-13,13),
+        y:row.y+rand(-8,8),
+        type, held:false, scored:false, scale:rand(0.9,1.05)
+      });
+    }
+  });
+}
+
+/* ================= 流程控制 ================= */
+function startGame(){
+  ensureAudio();
+  state.moves=5; state.got=0; state.caughtList=[];
+  showScreen('game');
+  const c=$('gameCanvas');
+  const {w,h}=fitCanvas(c);
+  resetDolls(w,h);
+  claw.x=w/2; claw.y=40; claw.mode='idle'; claw.held=null; claw.open=1; claw.t=0;
+  updateHud(); setFeedback('','');
+  last=performance.now();
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+function updateHud(){
+  $('hudMoves').textContent='剩余 '+state.moves+' 次';
+  $('hudGot').textContent='已抓 '+state.got+' 只';
+}
+function setFeedback(msg,cls){
+  const el=$('feedback'); el.textContent=msg;
+  el.className='feedback'+(cls?' '+cls:'');
+}
+
+function tryDrop(){
+  if(claw.mode!=='idle' || state.moves<=0) return;
+  sfx.drop();
+  claw.mode='lowering'; claw.t=0;
+  setFeedback('爪子下降中…','');
+}
+
+/* ================= 状态机更新 ================= */
+function update(dt,w,h){
+  const groundY=h-86;
+  // idle 下允许左右移动
+  if(claw.mode==='idle'){
+    if(keys.left) claw.x-=claw.speed*dt;
+    if(keys.right) claw.x+=claw.speed*dt;
+    claw.x=clamp(claw.x,50,w-70);
+  }
+  switch(claw.mode){
+    case 'lowering':{
+      claw.y+=170*dt;
+      if(claw.y>=groundY){ claw.y=groundY; claw.mode='closing'; claw.t=0; }
+      break;
+    }
+    case 'closing':{
+      claw.t+=dt;
+      claw.open=Math.max(0.25, 1-claw.t/0.35);
+      if(claw.t>=0.35){
+        // 判定抓取
+        let best=null,bd=1e9;
+        dolls.forEach(d=>{
+          if(d.held||d.scored) return;
+          const dist=Math.hypot(d.x-claw.x,d.y-claw.y);
+          if(dist<bd){bd=dist;best=d;}
+        });
+        if(best && bd<48){
+          claw.held=best; best.held=true;
+          sfx.grab(); setFeedback('抓到啦！','good');
+        }else{
+          sfx.miss(); setFeedback('差一点点，没抓住','bad');
+        }
+        claw.mode='rising'; claw.t=0;
+      }
+      break;
+    }
+    case 'rising':{
+      claw.y-=190*dt;
+      if(claw.y<=40){ claw.y=40; claw.mode='moving'; claw.t=0; }
+      if(claw.held) claw.held.y=claw.y+18;
+      break;
+    }
+    case 'moving':{
+      const exitX=w-48;
+      claw.x+=(exitX-claw.x)*Math.min(1,dt*4);
+      if(claw.held) claw.held.x=claw.x;
+      if(Math.abs(claw.x-exitX)<4){ claw.mode='dropping'; claw.t=0; }
+      break;
+    }
+    case 'dropping':{
+      claw.t+=dt;
+      claw.open=Math.min(1,claw.open+dt*2);
+      if(claw.held && claw.t>0.3){
+        claw.held.scored=true;
+        state.caughtList.push(claw.held.type);
+        state.got++;
+        claw.held=null;
+        updateHud();
+      }
+      if(claw.t>0.9){ claw.mode='returning'; claw.t=0; }
+      break;
+    }
+    case 'returning':{
+      const midX=w/2;
+      claw.x+=(midX-claw.x)*Math.min(1,dt*4);
+      if(Math.abs(claw.x-midX)<4){
+        claw.mode='idle';
+        state.moves--;
+        updateHud();
+        if(state.moves<=0){ endGame(); return; }
+        setFeedback('准备好下一次！','');
+      }
+      break;
+    }
+  }
+}
+
+/* ================= 绘制 ================= */
+function draw(){
+  const c=$('gameCanvas');
+  const {ctx,w,h}=fitCanvas(c);
+  ctx.clearRect(0,0,w,h);
+
+  // 机窗背景
+  ctx.fillStyle='#eef3ff';
+  roundRect(ctx,10,10,w-20,h-20,18); ctx.fill();
+  // 底部软垫
+  ctx.fillStyle=PAL.mint;
+  roundRect(ctx,10,h-96,w-20,86,18); ctx.fill();
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2.5;
+  // 软垫虚线缝线
+  ctx.setLineDash([7,7]);
+  ctx.beginPath(); ctx.moveTo(24,h-104); ctx.lineTo(w-24,h-104); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 出口收藏洞
+  const exitX=w-48, exitY=h-52;
+  ctx.fillStyle='#7a6558';
+  ctx.beginPath(); ctx.arc(exitX,exitY,26,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#5f4c42';
+  ctx.beginPath(); ctx.arc(exitX,exitY,20,0,Math.PI*2); ctx.fill();
+  // 洞内陈列已抓到的玩偶
+  state.caughtList.slice(-4).forEach((t,i)=>{
+    const col=i%2, row=Math.floor(i/2);
+    ctx.save();
+    ctx.translate(exitX+(col?7:-7), exitY+(row?7:-7));
+    ctx.scale(0.42,0.42);
+    drawDollType(ctx,t);
+    ctx.restore();
+  });
+
+  // 玩偶
+  dolls.forEach(d=>{ if(!d.scored) drawDoll(ctx,d); });
+
+  // 轨道
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(24,40); ctx.lineTo(w-24,40); ctx.stroke();
+
+  // 链条 + 爪
+  drawClaw(ctx,w,h);
+}
+
+function drawClaw(ctx,w,h){
+  const {x,y}=claw;
+  // 链条
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(x,40); ctx.lineTo(x,y); ctx.stroke();
+  // 爪座
+  ctx.fillStyle=PAL.pinkDeep;
+  roundRect(ctx,x-12,y-6,24,14,6); ctx.fill(); ctx.stroke();
+  // 两瓣爪
+  const spread=14*claw.open+6;
+  ctx.lineWidth=3; ctx.strokeStyle=PAL.ink;
+  ctx.fillStyle=PAL.cream;
+  // 左爪
+  ctx.beginPath();
+  ctx.moveTo(x-6,y+8);
+  ctx.lineTo(x-6-spread,y+30);
+  ctx.lineTo(x-2-spread,y+34);
+  ctx.stroke();
+  // 右爪
+  ctx.beginPath();
+  ctx.moveTo(x+6,y+8);
+  ctx.lineTo(x+6+spread,y+30);
+  ctx.lineTo(x+2+spread,y+34);
+  ctx.stroke();
+}
+
+function drawDoll(ctx,d){
+  ctx.save();
+  ctx.translate(d.x,d.y);
+  ctx.scale(d.scale,d.scale);
+  drawDollType(ctx,d.type);
+  ctx.restore();
+}
+function drawDollType(ctx,type){
+  ctx.lineWidth=2; ctx.strokeStyle=PAL.ink;
+  if(type==='bear'){
+    ctx.fillStyle=PAL.bear;
+    ctx.beginPath(); ctx.arc(-9,-12,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(9,-12,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#f3e2d0';
+    ctx.beginPath(); ctx.ellipse(0,4,7,5,0,0,Math.PI*2); ctx.fill();
+    eyes(ctx,-5,-3,2); eyes(ctx,5,-3,2);
+    blush(ctx,-10,3); blush(ctx,10,3);
+  }else if(type==='rabbit'){
+    ctx.fillStyle=PAL.rabbit;
+    ctx.beginPath(); ctx.ellipse(-6,-16,4,9,-0.15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(6,-16,4,9,0.15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    eyes(ctx,-5,-3,2); eyes(ctx,5,-3,2);
+    ctx.fillStyle=PAL.heart;
+    ctx.beginPath(); ctx.arc(0,3,1.8,0,Math.PI*2); ctx.fill();
+    blush(ctx,-10,3); blush(ctx,10,3);
+  }else if(type==='cat'){
+    ctx.fillStyle=PAL.cat;
+    ctx.beginPath(); ctx.moveTo(-11,-9); ctx.lineTo(-7,-17); ctx.lineTo(-3,-10); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(11,-9); ctx.lineTo(7,-17); ctx.lineTo(3,-10); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    eyes(ctx,-5,-3,2); eyes(ctx,5,-3,2);
+    ctx.fillStyle='#e8a94e';
+    ctx.beginPath(); ctx.arc(0,3,1.8,0,Math.PI*2); ctx.fill();
+    blush(ctx,-10,4); blush(ctx,10,4);
+  }else if(type==='duck'){
+    ctx.fillStyle=PAL.duck;
+    ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=PAL.yellow;
+    ctx.beginPath(); ctx.ellipse(0,4,6,4,0,0,Math.PI*2); ctx.fill();
+    eyes(ctx,-5,-4,2); eyes(ctx,5,-4,2);
+    ctx.fillStyle=PAL.pinkDeep;
+    ctx.beginPath(); ctx.ellipse(0,3,5,3,0,0,Math.PI*2); ctx.fill();
+  }else if(type==='frog'){
+    ctx.fillStyle=PAL.frog;
+    ctx.beginPath(); ctx.arc(-7,-11,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(7,-11,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    eyes(ctx,-7,-11,2.4); eyes(ctx,7,-11,2.4);
+    ctx.fillStyle=PAL.ink;
+    ctx.beginPath(); ctx.arc(0,4,4,0.1,Math.PI-0.1); ctx.stroke();
+  }else{ // heart
+    ctx.fillStyle=PAL.heart;
+    ctx.beginPath();
+    ctx.moveTo(0,12);
+    ctx.bezierCurveTo(-18,0,-12,-14,0,-5);
+    ctx.bezierCurveTo(12,-14,18,0,0,12);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.ellipse(-5,-4,3,4,-0.5,0,Math.PI*2); ctx.fill();
+  }
+}
+function eyes(ctx,x,y,r){
+  ctx.fillStyle=PAL.ink;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+}
+function blush(ctx,x,y){
+  ctx.fillStyle='rgba(244,169,189,.55)';
+  ctx.beginPath(); ctx.ellipse(x,y,3.5,2.2,0,0,Math.PI*2); ctx.fill();
+}
+
+/* ================= 主循环 ================= */
+function loop(ts){
+  if(state.screen!=='game') return;
+  const dt=Math.min(0.05,(ts-last)/1000||0.016);
+  last=ts;
+  const c=$('gameCanvas');
+  const {w,h}=fitCanvas(c);
+  update(dt,w,h);
+  draw();
+  raf=requestAnimationFrame(loop);
+}
+
+/* ================= 结算 ================= */
+function endGame(){
+  cancelAnimationFrame(raf);
+  state.moves=0; updateHud();
+  const n=state.got;
+  let title, wish;
+  if(n>=5){ title='满载而归！'; wish='简直是抓娃娃天才，一整窝玩偶都被你抱回家啦！'; sfx.win(); }
+  else if(n>=3){ title='收获满满！'; wish='手感很不错哦，剩下的玩偶下次再来认领吧。'; sfx.win(); }
+  else if(n>=1){ title='小有收获！'; wish='抓到啦一只喜欢的玩偶，再练练手感会更顺。'; }
+  else{ title='全军覆没…'; wish='玩偶们太狡猾啦，调整好角度再来一次吧！'; }
+  $('endTitle').textContent=title;
+  $('endStats').innerHTML=
+    '<span class="stat">共 5 次机会</span>'+
+    '<span class="stat">抓到 '+n+' 只</span>';
+  const box=$('endDolls'); box.innerHTML='';
+  if(state.caughtList.length===0){
+    box.innerHTML='<span class="tip">这一局没有抓到玩偶</span>';
+  }else{
+    state.caughtList.forEach(t=>{
+      const chip=document.createElement('span');
+      chip.className='end-chip'; chip.textContent=DOLL_NAME[t];
+      box.appendChild(chip);
+    });
+  }
+  $('endWish').textContent=wish;
+  showScreen('end');
+}
+
+/* ================= 事件绑定 ================= */
+function bindHold(btn,onDown,onUp){
+  btn.addEventListener('pointerdown',(e)=>{e.preventDefault();onDown();});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,onUp));
+}
+$('btnStart').addEventListener('click',()=>{ ensureAudio(); sfx.click(); startGame(); });
+$('btnDrop').addEventListener('click',()=>{ ensureAudio(); tryDrop(); });
+bindHold($('btnLeft'),()=>keys.left=true,()=>keys.left=false);
+bindHold($('btnRight'),()=>keys.right=true,()=>keys.right=false);
+
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'){keys.left=true;e.preventDefault();}
+  else if(e.key==='ArrowRight'){keys.right=true;e.preventDefault();}
+  else if(e.key===' '){e.preventDefault(); tryDrop();}
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft')keys.left=false;
+  else if(e.key==='ArrowRight')keys.right=false;
+});
+
+$('btnReplay').addEventListener('click',()=>{ sfx.click(); startGame(); });
+$('btnHome').addEventListener('click',()=>{ sfx.click(); showScreen('start'); });
+
+window.addEventListener('resize',()=>{
+  if(state.screen==='game') fitCanvas($('gameCanvas'));
+});
+</script>
+</body>
+</html>
